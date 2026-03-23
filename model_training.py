@@ -1,0 +1,66 @@
+import os
+import numpy as np
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+import joblib
+
+# ========== LOAD DATA ==========
+DATA_PATH = "data"
+
+X = []
+y = []
+
+for label in os.listdir(DATA_PATH):
+    gesture_path = os.path.join(DATA_PATH, label)
+
+    if os.path.isdir(gesture_path):
+        for file in os.listdir(gesture_path):
+            file_path = os.path.join(gesture_path, file)
+
+            data = np.load(file_path)
+
+            # 🔥 NORMALIZATION (IMPORTANT)
+            data = data.reshape(21, 3)
+
+            # Use wrist (landmark 0) as reference
+            base_x, base_y, base_z = data[0]
+
+            normalized = []
+            for x, y_val, z in data:
+                normalized.extend([x - base_x, y_val - base_y, z - base_z])
+
+            X.append(normalized)
+            y.append(label)
+
+X = np.array(X)
+y = np.array(y)
+
+# ========== ENCODE LABELS ==========
+le = LabelEncoder()
+y_encoded = le.fit_transform(y)
+
+# ========== SPLIT DATA ==========
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y_encoded, test_size=0.2, stratify=y_encoded, random_state=42
+)
+
+# ========== TRAIN MODEL ==========
+model = RandomForestClassifier(
+    n_estimators=200,
+    max_depth=None,
+    min_samples_split=2,
+    random_state=42
+)
+
+model.fit(X_train, y_train)
+
+# ========== EVALUATE ==========
+accuracy = model.score(X_test, y_test)
+print(f"Accuracy: {accuracy * 100:.2f}%")
+
+# ========== SAVE MODEL ==========
+joblib.dump(model, "model.pkl")
+joblib.dump(le, "label_encoder.pkl")
+
+print("Model saved successfully")

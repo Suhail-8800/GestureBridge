@@ -4,12 +4,12 @@ import numpy as np
 import os
 
 # ========== CONFIG ==========
-gesture_name = "A"
-save_path = f"data/{gesture_name}"
-os.makedirs(save_path, exist_ok=True)
-
-max_samples = 50  # number of samples to collect
+current_gesture = "A"
+max_samples = 50
 sample_count = 0
+
+# Create base data folder
+os.makedirs("data", exist_ok=True)
 
 # ========== MEDIAPIPE ==========
 mp_hands = mp.solutions.hands
@@ -19,7 +19,9 @@ mp_draw = mp.solutions.drawing_utils
 # ========== WEBCAM ==========
 cap = cv2.VideoCapture(0)
 
+print("Press keys A-Z to change gesture")
 print("Press 's' to save data")
+print("Press 'q' to quit")
 
 while True:
     success, img = cap.read()
@@ -29,6 +31,15 @@ while True:
     img = cv2.flip(img, 1)
     img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     results = hands.process(img_rgb)
+
+    key = cv2.waitKey(1) & 0xFF
+
+    # 🔥 Change gesture (A-Z)
+    if 65 <= key <= 90:  # ASCII A-Z
+        current_gesture = chr(key)
+        sample_count = 0
+        os.makedirs(f"data/{current_gesture}", exist_ok=True)
+        print(f"Switched to gesture: {current_gesture}")
 
     if results.multi_hand_landmarks:
         for hand_landmarks in results.multi_hand_landmarks:
@@ -41,20 +52,22 @@ while True:
 
             if len(landmark_list) == 63:
 
-                key = cv2.waitKey(1)
-
+                # Save data
                 if key == ord('s') and sample_count < max_samples:
-                    np.save(f"{save_path}/{sample_count}.npy", landmark_list)
+                    np.save(f"data/{current_gesture}/{sample_count}.npy", landmark_list)
                     sample_count += 1
-                    print(f"Saved sample {sample_count}")
+                    print(f"{current_gesture}: {sample_count}/{max_samples}")
 
-    cv2.putText(img, f"Samples: {sample_count}/{max_samples}", 
-                (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 
-                1, (0, 255, 0), 2)
+    # Display info
+    cv2.putText(img, f"Gesture: {current_gesture}", (10, 40),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
+    cv2.putText(img, f"Samples: {sample_count}/{max_samples}", (10, 80),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
 
     cv2.imshow("Data Collection", img)
 
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+    if key == ord('q'):
         break
 
 cap.release()
