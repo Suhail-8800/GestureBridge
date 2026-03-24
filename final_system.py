@@ -10,9 +10,12 @@
 # num_model = joblib.load("model_numbers_full.pkl")
 # num_encoder = joblib.load("label_encoder_numbers_full.pkl")
 
+# word_model = joblib.load("model_words.pkl")
+# word_encoder = joblib.load("label_encoder_words.pkl")
+
 # # ========== MEDIAPIPE ==========
 # mp_hands = mp.solutions.hands
-# hands = mp_hands.Hands(max_num_hands=2)  # 🔥 allow 2 hands
+# hands = mp_hands.Hands(max_num_hands=2)
 # mp_draw = mp.solutions.drawing_utils
 
 # # ========== MODE ==========
@@ -26,8 +29,9 @@
 # # ========== WEBCAM ==========
 # cap = cv2.VideoCapture(0)
 
-# print("Press 'M' to switch mode")
-# print("Press 'Q' to quit")
+# print("Press 'M' → Toggle Alphabet/Number")
+# print("Press 'W' → Word Mode")
+# print("Press 'Q' → Quit")
 
 # while True:
 #     success, img = cap.read()
@@ -43,22 +47,34 @@
 
 #     # 🔥 MODE SWITCH
 #     if key == ord('m'):
-#         mode = "NUMBER" if mode == "ALPHABET" else "ALPHABET"
+#         if mode == "ALPHABET":
+#             mode = "NUMBER"
+#         else:
+#             mode = "ALPHABET"
 #         print(f"Switched to {mode} mode")
+
+#     if key == ord('w'):
+#         mode = "WORD"
+#         print("Switched to WORD mode")
 
 #     if results.multi_hand_landmarks:
 
 #         all_landmarks = []
 
-#         # Draw all hands and collect landmarks
-#         for hand_landmarks in results.multi_hand_landmarks:
+#         # 🔥 SORT HANDS (CRITICAL)
+#         hands_sorted = sorted(
+#             results.multi_hand_landmarks,
+#             key=lambda h: h.landmark[0].x
+#         )
+
+#         for hand_landmarks in hands_sorted:
 #             mp_draw.draw_landmarks(img, hand_landmarks, mp_hands.HAND_CONNECTIONS)
 
 #             for lm in hand_landmarks.landmark:
 #                 all_landmarks.extend([lm.x, lm.y, lm.z])
 
 #         # ==========================
-#         # 🔤 ALPHABET MODE (1 HAND)
+#         # 🔤 ALPHABET MODE
 #         # ==========================
 #         if mode == "ALPHABET" and len(all_landmarks) >= 63:
 
@@ -76,22 +92,140 @@
 #             current_pred = alpha_encoder.inverse_transform(pred)[0]
 
 #         # ==========================
-#         # 🔢 NUMBER MODE (0–9)
+#         # 🔢 NUMBER MODE
 #         # ==========================
+#         # elif mode == "NUMBER":
+
+#         #     if len(all_landmarks) == 63:
+#         #         combined = all_landmarks + all_landmarks
+
+#         #     elif len(all_landmarks) == 126:
+#         #         combined = all_landmarks
+
+#         #     else:
+#         #         combined = None
+
+#         #     if combined is not None:
+
+#         #         data = np.array(combined).reshape(42, 3)
+
+#         #         base_x, base_y, base_z = data[0]
+
+#         #         normalized = []
+#         #         for x, y_val, z in data:
+#         #             normalized.extend([x - base_x, y_val - base_y, z - base_z])
+
+#         #         normalized = np.array(normalized).reshape(1, -1)
+
+#         #         pred = num_model.predict(normalized)
+#         #         current_pred = num_encoder.inverse_transform(pred)[0]
+
+#         #     else:
+#         #         current_pred = ""
+
 #         elif mode == "NUMBER":
 
-#             # CASE 1: ONE HAND → duplicate
-#             if len(all_landmarks) == 63:
-#                 combined = all_landmarks + all_landmarks
+#             # ==========================
+#             # CASE 1: ONE HAND (0–5)
+#             # ==========================
+#             # if len(all_landmarks) == 63:
+#             #     combined = all_landmarks + all_landmarks
+#             if len(results.multi_hand_landmarks) == 1:
 
-#             # CASE 2: TWO HANDS → use both
+#                 hand_landmarks = results.multi_hand_landmarks[0]
+#                 handedness = results.multi_handedness[0].classification[0].label
+
+#                 single_hand = []
+
+#                 for lm in hand_landmarks.landmark:
+#                     x, y, z = lm.x, lm.y, lm.z
+
+#                     # 🔥 FIX: convert LEFT → RIGHT format
+#                     if handedness == "Left":
+#                         x = 1 - x
+
+#                     single_hand.extend([x, y, z])
+
+#                 combined = single_hand + single_hand
+
+                
+#                 data = np.array(combined).reshape(42, 3)
+
+#                 base_x, base_y, base_z = data[0]
+#                 normalized = []
+#                 for x, y_val, z in data:
+#                     normalized.extend([x - base_x, y_val - base_y, z - base_z])
+
+#                 normalized = np.array(normalized).reshape(1, -1)
+
+#                 pred = num_model.predict(normalized)
+#                 current_pred = num_encoder.inverse_transform(pred)[0]
+
+#             # ==========================
+#             # CASE 2: TWO HANDS (6–9)
+#             # ==========================
 #             elif len(all_landmarks) == 126:
+
+#                 # Original order
+#                 data1 = np.array(all_landmarks).reshape(42, 3)
+
+#                 base_x, base_y, base_z = data1[0]
+#                 norm1 = []
+#                 for x, y_val, z in data1:
+#                     norm1.extend([x - base_x, y_val - base_y, z - base_z])
+#                 norm1 = np.array(norm1).reshape(1, -1)
+
+#                 pred1 = num_model.predict(norm1)
+#                 pred1_label = num_encoder.inverse_transform(pred1)[0]
+
+#                 # 🔥 Reverse hand order
+#                 hand1 = all_landmarks[:63]
+#                 hand2 = all_landmarks[63:]
+
+#                 reversed_combined = hand2 + hand1
+
+#                 data2 = np.array(reversed_combined).reshape(42, 3)
+
+#                 base_x, base_y, base_z = data2[0]
+#                 norm2 = []
+#                 for x, y_val, z in data2:
+#                     norm2.extend([x - base_x, y_val - base_y, z - base_z])
+#                 norm2 = np.array(norm2).reshape(1, -1)
+
+#                 pred2 = num_model.predict(norm2)
+#                 pred2_label = num_encoder.inverse_transform(pred2)[0]
+
+#                 # ==========================
+#                 # FINAL DECISION
+#                 # ==========================
+#                 if pred1_label == pred2_label:
+#                     current_pred = pred1_label
+#                 else:
+#                     # Prefer higher number (more fingers)
+#                     current_pred = max(pred1_label, pred2_label)
+
+#             else:
+#                 current_pred = ""
+
+
+
+#         # ==========================
+#         # 🔤 WORD MODE
+#         # ==========================
+#         elif mode == "WORD":
+
+#             # HELP → 2 hands
+#             if len(all_landmarks) == 126:
 #                 combined = all_landmarks
+
+#             # All other words → 1 hand
+#             elif len(all_landmarks) == 63:
+#                 combined = all_landmarks + all_landmarks
 
 #             else:
 #                 combined = None
 
-#             if combined:
+#             if combined is not None:
 
 #                 data = np.array(combined).reshape(42, 3)
 
@@ -103,31 +237,36 @@
 
 #                 normalized = np.array(normalized).reshape(1, -1)
 
-#                 pred = num_model.predict(normalized)
-#                 current_pred = num_encoder.inverse_transform(pred)[0]
+#                 pred = word_model.predict(normalized)
+#                 current_pred = word_encoder.inverse_transform(pred)[0]
+
 #             else:
 #                 current_pred = ""
 
 #         else:
 #             current_pred = ""
 
-#         # 🔥 STABILITY LOGIC
-#         if current_pred == prev_prediction:
+#         # ==========================
+#         # 🔥 STABILITY
+#         # ==========================
+#         if current_pred == prev_prediction and current_pred != "":
 #             counter += 1
 #         else:
 #             counter = 0
 
 #         prev_prediction = current_pred
 
-#         if counter > 5:
+#         if counter >= 6:
 #             prediction = current_pred
 
+#     # ==========================
 #     # DISPLAY
+#     # ==========================
 #     cv2.putText(img, f"Mode: {mode}", (10, 40),
 #                 cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 2)
 
-#     cv2.putText(img, f"Output: {prediction}", (10, 90),
-#                 cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3)
+#     cv2.putText(img, f"Output: {prediction}", (10, 100),
+#                 cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 4)
 
 #     cv2.imshow("GestureBridge System", img)
 
@@ -136,9 +275,6 @@
 
 # cap.release()
 # cv2.destroyAllWindows()
-
-
-
 
 
 
@@ -153,6 +289,9 @@ alpha_encoder = joblib.load("label_encoder.pkl")
 
 num_model = joblib.load("model_numbers_full.pkl")
 num_encoder = joblib.load("label_encoder_numbers_full.pkl")
+
+word_model = joblib.load("model_words.pkl")
+word_encoder = joblib.load("label_encoder_words.pkl")
 
 # ========== MEDIAPIPE ==========
 mp_hands = mp.solutions.hands
@@ -170,8 +309,9 @@ prediction = ""
 # ========== WEBCAM ==========
 cap = cv2.VideoCapture(0)
 
-print("Press 'M' to switch mode")
-print("Press 'Q' to quit")
+print("Press 'M' → Toggle Alphabet/Number")
+print("Press 'W' → Word Mode")
+print("Press 'Q' → Quit")
 
 while True:
     success, img = cap.read()
@@ -185,22 +325,28 @@ while True:
 
     key = cv2.waitKey(1) & 0xFF
 
-    # 🔥 MODE SWITCH
+    # MODE SWITCH
     if key == ord('m'):
-        mode = "NUMBER" if mode == "ALPHABET" else "ALPHABET"
+        if mode == "ALPHABET":
+            mode = "NUMBER"
+        else:
+            mode = "ALPHABET"
         print(f"Switched to {mode} mode")
+
+    if key == ord('w'):
+        mode = "WORD"
+        print("Switched to WORD mode")
 
     if results.multi_hand_landmarks:
 
         all_landmarks = []
 
-        # 🔥 SORT HANDS (IMPORTANT for consistency)
+        # SORT HANDS (CRITICAL)
         hands_sorted = sorted(
             results.multi_hand_landmarks,
-            key=lambda h: h.landmark[0].x  # sort by wrist x
+            key=lambda h: h.landmark[0].x
         )
 
-        # Draw + extract
         for hand_landmarks in hands_sorted:
             mp_draw.draw_landmarks(img, hand_landmarks, mp_hands.HAND_CONNECTIONS)
 
@@ -208,7 +354,7 @@ while True:
                 all_landmarks.extend([lm.x, lm.y, lm.z])
 
         # ==========================
-        # 🔤 ALPHABET MODE
+        # ALPHABET MODE
         # ==========================
         if mode == "ALPHABET" and len(all_landmarks) >= 63:
 
@@ -226,18 +372,89 @@ while True:
             current_pred = alpha_encoder.inverse_transform(pred)[0]
 
         # ==========================
-        # 🔢 NUMBER MODE (0–10)
+        # NUMBER MODE
         # ==========================
         elif mode == "NUMBER":
 
-            # CASE 1: ONE HAND (0–5)
-            if len(all_landmarks) == 63:
-                combined = all_landmarks + all_landmarks
+            # ONE HAND (0–5)
+            if len(results.multi_hand_landmarks) == 1:
 
-            # CASE 2: TWO HANDS (6–10)
+                hand_landmarks = results.multi_hand_landmarks[0]
+                handedness = results.multi_handedness[0].classification[0].label
+
+                single_hand = []
+
+                for lm in hand_landmarks.landmark:
+                    x, y, z = lm.x, lm.y, lm.z
+
+                    # Convert LEFT → RIGHT format
+                    if handedness == "Left":
+                        x = 1 - x
+
+                    single_hand.extend([x, y, z])
+
+                combined = single_hand + single_hand
+
+                data = np.array(combined).reshape(42, 3)
+
+                base_x, base_y, base_z = data[0]
+                normalized = []
+                for x, y_val, z in data:
+                    normalized.extend([x - base_x, y_val - base_y, z - base_z])
+
+                normalized = np.array(normalized).reshape(1, -1)
+
+                pred = num_model.predict(normalized)
+                current_pred = num_encoder.inverse_transform(pred)[0]
+
+            # TWO HANDS (6–9)
             elif len(all_landmarks) == 126:
-                combined = all_landmarks
 
+                data1 = np.array(all_landmarks).reshape(42, 3)
+
+                base_x, base_y, base_z = data1[0]
+                norm1 = []
+                for x, y_val, z in data1:
+                    norm1.extend([x - base_x, y_val - base_y, z - base_z])
+                norm1 = np.array(norm1).reshape(1, -1)
+
+                pred1 = num_model.predict(norm1)
+                pred1_label = num_encoder.inverse_transform(pred1)[0]
+
+                hand1 = all_landmarks[:63]
+                hand2 = all_landmarks[63:]
+
+                reversed_combined = hand2 + hand1
+
+                data2 = np.array(reversed_combined).reshape(42, 3)
+
+                base_x, base_y, base_z = data2[0]
+                norm2 = []
+                for x, y_val, z in data2:
+                    norm2.extend([x - base_x, y_val - base_y, z - base_z])
+                norm2 = np.array(norm2).reshape(1, -1)
+
+                pred2 = num_model.predict(norm2)
+                pred2_label = num_encoder.inverse_transform(pred2)[0]
+
+                # FINAL DECISION
+                if pred1_label == pred2_label:
+                    current_pred = pred1_label
+                else:
+                    current_pred = max(pred1_label, pred2_label)
+
+            else:
+                current_pred = ""
+
+        # ==========================
+        # WORD MODE
+        # ==========================
+        elif mode == "WORD":
+
+            if len(all_landmarks) == 126:
+                combined = all_landmarks
+            elif len(all_landmarks) == 63:
+                combined = all_landmarks + all_landmarks
             else:
                 combined = None
 
@@ -253,8 +470,8 @@ while True:
 
                 normalized = np.array(normalized).reshape(1, -1)
 
-                pred = num_model.predict(normalized)
-                current_pred = num_encoder.inverse_transform(pred)[0]
+                pred = word_model.predict(normalized)
+                current_pred = word_encoder.inverse_transform(pred)[0]
 
             else:
                 current_pred = ""
@@ -262,9 +479,7 @@ while True:
         else:
             current_pred = ""
 
-        # ==========================
-        # 🔥 STABILITY (IMPROVED)
-        # ==========================
+        # STABILITY
         if current_pred == prev_prediction and current_pred != "":
             counter += 1
         else:
@@ -275,9 +490,7 @@ while True:
         if counter >= 6:
             prediction = current_pred
 
-    # ==========================
     # DISPLAY
-    # ==========================
     cv2.putText(img, f"Mode: {mode}", (10, 40),
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 2)
 

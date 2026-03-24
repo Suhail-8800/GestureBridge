@@ -66,8 +66,6 @@
 
 
 
-
-
 import os
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
@@ -115,24 +113,24 @@ le = LabelEncoder()
 y_encoded = le.fit_transform(y)
 
 # ==========================
-# 🔥 SPLIT DATA (IMPORTANT)
+# 🔥 SPLIT DATA
 # ==========================
 X_train, X_test, y_train, y_test = train_test_split(
     X,
     y_encoded,
     test_size=0.2,
-    stratify=y_encoded,   # keeps balance
+    stratify=y_encoded,
     random_state=42
 )
 
 # ==========================
-# 🔥 MODEL (IMPROVED)
+# 🔥 MODEL
 # ==========================
 model = RandomForestClassifier(
-    n_estimators=300,       # increased trees
+    n_estimators=300,
     max_depth=None,
     min_samples_split=2,
-    class_weight="balanced",  # 🔥 fixes weak classes like 8
+    class_weight="balanced",
     random_state=42
 )
 
@@ -150,4 +148,4 @@ print(f"Number Model Accuracy: {accuracy * 100:.2f}%")
 joblib.dump(model, "model_numbers_full.pkl")
 joblib.dump(le, "label_encoder_numbers_full.pkl")
 
-print("Unified number model (0–10) saved successfully")
+print("Unified number model (0–9) saved successfully")

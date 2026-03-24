@@ -90,8 +90,6 @@
 # cap.release()
 # cv2.destroyAllWindows()
 
-
-
 import cv2
 import mediapipe as mp
 import numpy as np
@@ -113,9 +111,8 @@ mp_draw = mp.solutions.drawing_utils
 cap = cv2.VideoCapture(0)
 
 print("Press keys 0-9 to change gesture")
-print("Press 'x' for 10")
 print("0–5 → ONE hand")
-print("6–10 → TWO hands")
+print("6–9 → TWO hands")
 print("Press 's' to save")
 print("Press 'q' to quit")
 
@@ -137,18 +134,17 @@ while True:
         os.makedirs(f"data_numbers/{current_gesture}", exist_ok=True)
         print(f"Switched to: {current_gesture}")
 
-    # 🔥 Add 10 (press X)
-    elif key == ord('x'):
-        current_gesture = "10"
-        sample_count = 0
-        os.makedirs(f"data_numbers/{current_gesture}", exist_ok=True)
-        print("Switched to: 10")
-
     if results.multi_hand_landmarks:
 
         all_landmarks = []
 
-        for hand_landmarks in results.multi_hand_landmarks:
+        # 🔥 SORT HANDS (CRITICAL FIX)
+        hands_sorted = sorted(
+            results.multi_hand_landmarks,
+            key=lambda h: h.landmark[0].x
+        )
+
+        for hand_landmarks in hands_sorted:
             mp_draw.draw_landmarks(img, hand_landmarks, mp_hands.HAND_CONNECTIONS)
 
             for lm in hand_landmarks.landmark:
@@ -160,7 +156,7 @@ while True:
         if len(results.multi_hand_landmarks) == 1 and current_gesture in ['0','1','2','3','4','5']:
 
             if len(all_landmarks) == 63:
-                combined = all_landmarks + all_landmarks  # duplicate
+                combined = all_landmarks + all_landmarks  # duplicate → 126
 
                 if key == ord('s') and sample_count < max_samples:
                     np.save(f"data_numbers/{current_gesture}/{sample_count}.npy", combined)
@@ -168,9 +164,9 @@ while True:
                     print(f"{current_gesture}: {sample_count}/{max_samples}")
 
         # ==========================
-        # 🔢 CASE 2: TWO HANDS (6–10)
+        # 🔢 CASE 2: TWO HANDS (6–9)
         # ==========================
-        elif len(results.multi_hand_landmarks) == 2 and current_gesture in ['6','7','8','9','10']:
+        elif len(results.multi_hand_landmarks) == 2 and current_gesture in ['6','7','8','9']:
 
             if len(all_landmarks) == 126:
                 if key == ord('s') and sample_count < max_samples:
@@ -185,7 +181,7 @@ while True:
     cv2.putText(img, f"Samples: {sample_count}/{max_samples}", (10, 80),
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
 
-    cv2.imshow("Number Data Collection (0-10)", img)
+    cv2.imshow("Number Data Collection (0-9)", img)
 
     if key == ord('q'):
         break
