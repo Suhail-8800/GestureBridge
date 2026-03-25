@@ -20,7 +20,6 @@ word_map = {
     'o': 'OK',
     'a': 'NAME',
     'p': 'PAYMENT',
-    'b': 'BYE',
     'r': 'SORRY',
     'x': 'PLEASE'
 }
